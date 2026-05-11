@@ -1,0 +1,84 @@
+{
+  "players": [
+    {
+      "id": "2",
+      "name": "Devam",
+      "Rs": 200
+    },
+    {
+      "id": "3",
+      "name": "Hardik",
+      "Rs": 200
+    },
+    {
+      "id": "4",
+      "name": "Malav",
+      "Rs": 200
+    },
+    {
+      "id": "5",
+      "name": "Kunal",
+      "Rs": 200
+    },
+    {
+      "id": "6",
+      "name": "Jainam",
+      "Rs": 200
+    },
+    {
+      "id": "7",
+      "name": "Rahil",
+      "Rs": 200
+    },
+    {
+      "id": "8",
+      "name": "Devam",
+      "Rs": 200
+    },
+    {
+      "id": "9",
+      "name": "Hardik",
+      "Rs": 200
+    },
+    {
+      "id": "10",
+      "name": "Malav",
+      "Rs": 200
+    },
+    {
+      "id": "11",
+      "name": "Kunal",
+      "Rs": 200
+    },
+    {
+      "id": "12",
+      "name": "Jainam",
+      "Rs": 200
+    },
+    {
+      "id": "13",
+      "name": "Hardik",
+      "Rs": 200
+    },
+    {
+      "id": "14",
+      "name": "Malav",
+      "Rs": 200
+    },
+    {
+      "id": "15",
+      "name": "Kunal",
+      "Rs": 200
+    },
+    {
+      "id": "4e3e",
+      "name": "Malav",
+      "Rs": "20"
+    },
+    {
+      "id": "5f7d",
+      "name": "Rahil",
+      "Rs": "20"
+    }
+  ]
+}
