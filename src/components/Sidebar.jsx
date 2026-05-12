@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, IndianRupee, CircleDashed, Users, LogOut, LogIn, Sun, Moon, Trophy, BookOpen } from 'lucide-react';
+import { LayoutDashboard, IndianRupee, CircleDashed, Users, LogOut, LogIn, Sun, Moon, Trophy, BookOpen, Image } from 'lucide-react';
 import { useStore, showConfirm } from '../store/useStore';
 import ExportData from './ExportData';
 import './Sidebar.css';
@@ -21,6 +21,7 @@ const Sidebar = () => {
     { path: '/players', label: 'Players', icon: <Users size={20} /> },
     { path: '/rules', label: 'Rules', icon: <BookOpen size={20} /> },
     { path: '/matches', label: 'Matches', icon: <Trophy size={20} /> },
+    { path: '/gallery', label: 'Gallery', icon: <Image size={20} /> },
   ];
 
   return (
