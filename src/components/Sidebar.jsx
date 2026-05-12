@@ -28,7 +28,7 @@ const Sidebar = () => {
       <div className="sidebar-header">
         <div className="logo-icon">🏏</div>
         <div>
-          <h2>CCA Admin</h2>
+          <h2>{isAdmin ? 'CCA Admin' : 'CCA'}</h2>
           {isAdmin && adminName && (
             <p style={{ margin: '0.15rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               Logged in as {adminName}

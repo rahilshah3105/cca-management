@@ -378,3 +378,26 @@ a:hover {
 .text-danger {
   color: var(--danger-color);
 }
+
+/* Prevent Chrome/Safari autofill from forcing white background/text
+   Keep autofill visuals consistent with theme surface color */
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-color) inset !important;
+  box-shadow: 0 0 0 1000px var(--surface-color) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+[data-theme="light"] input:-webkit-autofill,
+[data-theme="light"] textarea:-webkit-autofill,
+[data-theme="light"] select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px rgba(0,0,0,0.03) inset !important;
+  box-shadow: 0 0 0 1000px rgba(0,0,0,0.03) inset !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+/* Some browsers also use :-internal-autofill-selected, include generic rule */
+input:-internal-autofill-selected {
+  background-clip: padding-box !important;
+}

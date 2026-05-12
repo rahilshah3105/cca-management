@@ -43,7 +43,16 @@ const Login = () => {
         <form onSubmit={handleLogin}>
           <div className="form-group" style={{ textAlign: 'left' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Name</label>
-            <input type="text" className="form-control" placeholder="Admin name" value={name} onChange={(e) => { setName(e.target.value); setError(''); }} required />
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Admin name"
+              value={name}
+              onChange={(e) => { setName(e.target.value); setError(''); }}
+              autoFocus
+              autoComplete="username"
+              required
+            />
             <div style={{ height: '0.5rem' }} />
             <div className="password-input">
               <input
@@ -55,7 +64,7 @@ const Login = () => {
                   setPassword(e.target.value);
                   setError('');
                 }}
-                autoFocus
+                autoComplete="current-password"
                 required
               />
               {showPassword ? <EyeOff size={20} onClick={handleShowPassword} /> : <Eye size={20} onClick={handleShowPassword} />}

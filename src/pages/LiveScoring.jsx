@@ -229,7 +229,7 @@ const LiveScoring = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
             {[0, 1, 2, 3, 4, 6].map(r => (
               <button key={r} onClick={() => addBall(r)}
-                style={{ padding: '1rem', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '1.1rem',
+                style={{ padding: '1rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '1.1rem',
                   background: r === 4 ? 'rgba(16,185,129,0.2)' : r === 6 ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.08)',
                   color: r === 4 ? '#10b981' : r === 6 ? '#6366f1' : 'var(--text-primary)',
                   border: `1px solid ${r === 4 ? 'rgba(16,185,129,0.3)' : r === 6 ? 'rgba(99,102,241,0.3)' : 'var(--border-color)'}` }}>
