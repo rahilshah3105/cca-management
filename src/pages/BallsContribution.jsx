@@ -9,10 +9,11 @@ import Modal from '../components/Modal';
 const BallsContribution = () => {
     const { funds, players, addFund, isAdmin, addPlayer } = useStore();
 
-    const handleAddNewPlayer = async () => {
-        const name = await showPrompt("Enter new player name:");
-        if (name && name.trim()) {
-            const newId = addPlayer({ name: name.trim() });
+    const handleAddNewPlayer = async (name) => {
+        let playerName = name;
+        if (!playerName) playerName = await showPrompt("Enter new player name:");
+        if (playerName && playerName.trim()) {
+            const newId = addPlayer({ name: playerName.trim() });
             setFormData({ ...formData, playerId: newId });
         }
     };
@@ -195,6 +196,7 @@ const BallsContribution = () => {
                                     value={formData.playerId}
                                     onChange={(val) => setFormData({ ...formData, playerId: val })}
                                     options={playerOptions}
+                                    placeholder="Search or add player..."
                                     onAddNew={handleAddNewPlayer}
                                 />
                             </div>

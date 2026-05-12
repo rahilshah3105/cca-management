@@ -24,10 +24,11 @@ const FundManagement = () => {
     date: ''
   });
 
-  const handleAddNewPlayer = async () => {
-    const name = await showPrompt("Enter new player name:");
-    if (name && name.trim()) {
-      const newId = addPlayer({ name: name.trim() });
+  const handleAddNewPlayer = async (name) => {
+    let playerName = name;
+    if (!playerName) playerName = await showPrompt("Enter new player name:");
+    if (playerName && playerName.trim()) {
+      const newId = addPlayer({ name: playerName.trim() });
       setFormData({ ...formData, playerId: newId });
     }
   };
@@ -216,7 +217,7 @@ const FundManagement = () => {
                 value={formData.playerId}
                 onChange={(val) => setFormData({...formData, playerId: val})}
                 options={playerOptions}
-                placeholder="Select Player"
+                placeholder="Search or add player..."
                 onAddNew={handleAddNewPlayer}
               />
             </div>

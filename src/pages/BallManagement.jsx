@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
-import { Plus, Trash2, ArrowUpDown, Search, Edit2, Info } from 'lucide-react';
+import { Plus, Trash2, ArrowUpDown, Search, Edit2, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import CustomSelect from '../components/CustomSelect';
 import Modal from '../components/Modal';
@@ -24,6 +24,7 @@ const BallManagement = () => {
   // Filter and Sort State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('ALL');
+  const [filterRecovery, setFilterRecovery] = useState('ALL');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
   const reasons = [
@@ -53,12 +54,29 @@ const BallManagement = () => {
     if (!editingBall.quantity) return;
     if (editingBall.type === 'LOST' && !editingBall.playerId) return;
 
+    const isRecovered = editingBall.type === 'LOST' ? !!editingBall.recovered : false;
+
     updateBallRecord(editingBall.id, {
       ...editingBall,
-      quantity: Number(editingBall.quantity)
+      quantity: Number(editingBall.quantity),
+      recovered: isRecovered,
+      recoveredAt: isRecovered ? (editingBall.recoveredAt || new Date().toISOString()) : null
     });
     
     setEditingBall(null);
+  };
+
+  const handleAcknowledgeRecovery = (ball) => {
+    if (!ball) return;
+    const updatedBall = {
+      ...ball,
+      recovered: true,
+      recoveredAt: new Date().toISOString()
+    };
+    updateBallRecord(ball.id, updatedBall);
+    if (viewingBall?.id === ball.id) {
+      setViewingBall(updatedBall);
+    }
   };
 
   const handleSort = (key) => {
@@ -75,6 +93,13 @@ const BallManagement = () => {
 
     if (filterType !== 'ALL') {
       result = result.filter(b => b.type === filterType);
+    }
+
+    if (filterRecovery !== 'ALL') {
+      result = result.filter((b) => {
+        const isRecovered = !!b.recovered;
+        return filterRecovery === 'RECOVERED' ? isRecovered : !isRecovered;
+      });
     }
 
     if (searchQuery) {
@@ -104,7 +129,7 @@ const BallManagement = () => {
     });
 
     return result;
-  }, [balls, players, filterType, searchQuery, sortConfig]);
+  }, [balls, players, filterType, filterRecovery, searchQuery, sortConfig]);
 
   const playerOptions = players.map(p => ({ label: p.name, value: p.id }));
 
@@ -204,16 +229,29 @@ const BallManagement = () => {
             />
           </div>
         </div>
-        <div style={{ width: '200px' }}>
-          <CustomSelect 
-            value={filterType}
-            onChange={setFilterType}
-            options={[
-              { label: 'All Records', value: 'ALL' },
-              { label: 'Added Stock', value: 'ADDED' },
-              { label: 'Lost Balls', value: 'LOST' }
-            ]}
-          />
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ width: '200px' }}>
+            <CustomSelect 
+              value={filterType}
+              onChange={setFilterType}
+              options={[
+                { label: 'All Records', value: 'ALL' },
+                { label: 'Added Stock', value: 'ADDED' },
+                { label: 'Lost Balls', value: 'LOST' }
+              ]}
+            />
+          </div>
+          <div style={{ width: '220px' }}>
+            <CustomSelect 
+              value={filterRecovery}
+              onChange={setFilterRecovery}
+              options={[
+                { label: 'All Recovery Status', value: 'ALL' },
+                { label: 'Recovery Pending', value: 'PENDING' },
+                { label: 'Recovered', value: 'RECOVERED' }
+              ]}
+            />
+          </div>
         </div>
       </div>
 
@@ -234,21 +272,23 @@ const BallManagement = () => {
                 <th>Player (If Lost)</th>
                 <th>Reason</th>
                 <th>Description</th>
+                <th className="text-center">Recovery</th>
                 <th className="text-center">Action</th>
               </tr>
             </thead>
             <tbody>
               {processedBalls.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
+                  <td colSpan={8} className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
                     No ball records found.
                   </td>
                 </tr>
               ) : (
                 processedBalls.map((ball) => {
                   const player = players.find(p => p.id === ball.playerId);
+                  const isRecovered = !!ball.recovered;
                   return (
-                    <tr key={ball.id}>
+                    <tr key={ball.id} onClick={() => setViewingBall(ball)} style={{ cursor: 'pointer' }}>
                       <td>{format(new Date(ball.date), 'dd MMM yy, HH:mm')}</td>
                       <td>
                         <span className={`badge ${ball.type === 'ADDED' ? 'badge-success' : 'badge-danger'}`}>
@@ -261,31 +301,48 @@ const BallManagement = () => {
                       <td style={{ maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ball.description || '-'}
                       </td>
-                      <td className="text-center" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                        <button 
-                          onClick={() => setViewingBall(ball)}
-                          style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', cursor: 'pointer' }}
-                          title="View Details"
-                        >
-                          <Info size={18} />
-                        </button>
+                      <td className="text-center">
+                        {ball.type === 'LOST' ? (
+                          <span className={`badge ${isRecovered ? 'badge-success' : 'badge-danger'}`}>
+                            {isRecovered ? 'Recovered' : 'Recovery Pending'}
+                          </span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="text-center" onClick={(e) => e.stopPropagation()}>
                         {isAdmin && (
-                          <>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {ball.type === 'LOST' && !isRecovered && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAcknowledgeRecovery(ball);
+                                }}
+                                style={{ background: 'transparent', border: 'none', color: 'var(--success-color)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Acknowledge recovered"
+                                aria-label="Acknowledge recovered"
+                              >
+                                <RotateCcw size={18} />
+                              </button>
+                            )}
                             <button 
                               onClick={() => setEditingBall(ball)}
-                              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                               title="Edit"
+                              aria-label="Edit"
                             >
                               <Edit2 size={18} className="hover:text-primary" />
                             </button>
                             <button 
                               onClick={() => removeBallRecord(ball.id)}
-                              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                               title="Delete"
+                              aria-label="Delete"
                             >
                               <Trash2 size={18} className="hover:text-danger" />
                             </button>
-                          </>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -343,6 +400,21 @@ const BallManagement = () => {
                       options={reasons}
                     />
                   </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label>Recovery Status</label>
+                    <CustomSelect
+                      value={editingBall.recovered ? 'RECOVERED' : 'PENDING'}
+                      onChange={(val) => setEditingBall({
+                        ...editingBall,
+                        recovered: val === 'RECOVERED',
+                        recoveredAt: val === 'RECOVERED' ? (editingBall.recoveredAt || new Date().toISOString()) : null
+                      })}
+                      options={[
+                        { label: 'Recovery Pending', value: 'PENDING' },
+                        { label: 'Recovered', value: 'RECOVERED' }
+                      ]}
+                    />
+                  </div>
                 </>
               )}
 
@@ -384,6 +456,14 @@ const BallManagement = () => {
                 <p style={{ fontWeight: 700, fontSize: '1.25rem' }}>{viewingBall.quantity}</p>
               </div>
               {viewingBall.type === 'LOST' && (
+                <div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Recovery Status</p>
+                  <span className={`badge ${viewingBall.recovered ? 'badge-success' : 'badge-danger'}`}>
+                    {viewingBall.recovered ? 'Recovered' : 'Recovery Pending'}
+                  </span>
+                </div>
+              )}
+              {viewingBall.type === 'LOST' && (
                 <>
                   <div>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Player</p>
@@ -401,6 +481,16 @@ const BallManagement = () => {
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Description / Notes</p>
               <p style={{ lineHeight: 1.5 }}>{viewingBall.description || 'No description provided.'}</p>
             </div>
+
+            {viewingBall.type === 'LOST' && !viewingBall.recovered && (
+              <button
+                className="btn btn-success"
+                onClick={() => handleAcknowledgeRecovery(viewingBall)}
+                style={{ background: 'var(--success-color)', color: '#fff', border: 'none', alignSelf: 'flex-start' }}
+              >
+                Acknowledge Money Recovered
+              </button>
+            )}
           </div>
         )}
       </Modal>

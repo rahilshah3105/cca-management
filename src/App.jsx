@@ -14,6 +14,7 @@ import LiveScoring from './pages/LiveScoring';
 import StumpsContribution from './pages/StumpsContribution';
 import BallsContribution from './pages/BallsContribution';
 import BatsContribution from './pages/BatsContribution';
+import Rules from './pages/Rules';
 import CustomDialog from './components/CustomDialog';
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
             <Route path="matches/:id" element={<MatchDetail />} />
             <Route path="matches/:id/score" element={<LiveScoring />} />
             <Route path="login" element={<Login />} />
+            <Route path="rules" element={<Rules />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -13,10 +13,11 @@ const BatsContribution = () => {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ amount: '', type: 'INCOME', playerId: '', description: '', date: '' });
 
-  const handleAddNewPlayer = async () => {
-    const name = await showPrompt("Enter new player name:");
-    if (name && name.trim()) {
-      const newId = addPlayer({ name: name.trim() });
+  const handleAddNewPlayer = async (name) => {
+    let playerName = name;
+    if (!playerName) playerName = await showPrompt("Enter new player name:");
+    if (playerName && playerName.trim()) {
+      const newId = addPlayer({ name: playerName.trim() });
       setFormData({ ...formData, playerId: newId });
     }
   };
@@ -91,7 +92,7 @@ const BatsContribution = () => {
             </div>
             <div className="form-group" style={{ flex: '1', minWidth: '150px', marginBottom: 0 }}>
               <label>Player</label>
-              <CustomSelect value={formData.playerId} onChange={(val) => setFormData({ ...formData, playerId: val })} options={playerOptions} onAddNew={handleAddNewPlayer} />
+              <CustomSelect value={formData.playerId} onChange={(val) => setFormData({ ...formData, playerId: val })} options={playerOptions} placeholder="Search or add player..." onAddNew={handleAddNewPlayer} />
             </div>
             <div className="form-group" style={{ flex: '1', minWidth: '160px', marginBottom: 0 }}>
               <label>Date</label>

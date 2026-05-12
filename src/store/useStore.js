@@ -2,6 +2,23 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { saveItemToDB, deleteItemFromDB, subscribeToCollection } from '../services/db';
 
+const OWNER_NAME = import.meta.env.VITE_OWNER_NAME || 'Rahil';
+const OWNER_PASSWORD = import.meta.env.VITE_OWNER_PASSWORD || '';
+
+// simple SHA-256 helper to hash passwords before storing/comparing
+const hashString = async (text) => {
+  try {
+    const enc = new TextEncoder();
+    const data = enc.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.warn('Hash not available, falling back to plaintext');
+    return text;
+  }
+};
+
 const initialPlayers = [
   { id: '1', name: 'Rahil' },
   { id: '2', name: 'Devam' },
@@ -15,6 +32,10 @@ export const useStore = create(
   persist(
     (set, get) => ({
       players: initialPlayers,
+      admins: [], // { id: playerId, name, passwordHash }
+      adminName: null,
+      adminId: null,
+      rules: [],
       funds: [],
       balls: [],
       matches: [],
@@ -27,15 +48,20 @@ export const useStore = create(
       closeDialog: () => set({ dialog: null }),
       
       // Actions
-      login: (password) => {
-        if (password === 'Admin@123') {
-          set({ isAdmin: true });
+      login: async (name, password) => {
+        const state = get();
+        const admins = state.admins || [];
+        const hashed = await hashString(password);
+        const now = new Date();
+        const match = admins.find(a => a.name === name && a.passwordHash === hashed && (!a.validFrom || new Date(a.validFrom) <= now) && (!a.validTo || new Date(a.validTo) >= now));
+        if (match) {
+          set({ isAdmin: true, adminName: match.name, adminId: match.id });
           return true;
         }
         return false;
       },
 
-      logout: () => set({ isAdmin: false }),
+      logout: () => set({ isAdmin: false, adminName: null, adminId: null }),
 
       toggleTheme: () => set((state) => ({
         theme: state.theme === 'light' ? 'dark' : 'light'
@@ -47,9 +73,34 @@ export const useStore = create(
 
         const safe = (fn) => { try { fn(); } catch(e) { console.warn('Firebase sync error:', e.message); } };
 
+        safe(() => {
+          const state = get();
+          if (!OWNER_PASSWORD || state.admins?.some(a => a.name === OWNER_NAME)) return;
+
+          hashString(OWNER_PASSWORD).then((passwordHash) => {
+            const ownerPlayer = state.players.find(p => p.name === OWNER_NAME);
+            const ownerAdmin = {
+              id: ownerPlayer?.id || `owner-${OWNER_NAME.toLowerCase()}`,
+              name: OWNER_NAME,
+              passwordHash,
+              validFrom: null,
+              validTo: null,
+            };
+
+            set((current) => ({
+              admins: [...current.admins.filter(a => a.name !== OWNER_NAME), ownerAdmin],
+            }));
+            saveItemToDB('admins', ownerAdmin);
+          }).catch((error) => {
+            console.warn('Unable to bootstrap owner admin:', error.message);
+          });
+        });
+
         safe(() => subscribeToCollection('players', (data) => {
           if (data.length > 0) set({ players: data });
         }));
+        safe(() => subscribeToCollection('admins', (data) => { set({ admins: data }); }));
+        safe(() => subscribeToCollection('rules', (data) => { set({ rules: data }); }));
         safe(() => subscribeToCollection('funds', (data) => { set({ funds: data }); }));
         safe(() => subscribeToCollection('balls', (data) => { set({ balls: data }); }));
         safe(() => subscribeToCollection('matches', (data) => { set({ matches: data }); }));
@@ -119,12 +170,62 @@ export const useStore = create(
         deleteItemFromDB('players', id);
       },
 
+      // Admin helpers
+      isOwner: () => {
+        const s = get();
+        return s.adminName === OWNER_NAME;
+      },
+
+      addAdmin: async (playerId, password, validFrom = null, validTo = null) => {
+        const s = get();
+        if (!s.adminName || s.adminName !== OWNER_NAME) return false; // only owner can add
+        const player = s.players.find(p => p.id === playerId);
+        if (!player) return false;
+        const passwordHash = await hashString(password);
+        const adminObj = { id: playerId, name: player.name, passwordHash, validFrom: validFrom ? new Date(validFrom).toISOString() : null, validTo: validTo ? new Date(validTo).toISOString() : null };
+        // Remove existing admin for this player if exists
+        set((state) => ({ admins: state.admins.filter(a => a.id !== playerId) }));
+        const existing = get().admins.find(a => a.id === playerId);
+        if (existing) deleteItemFromDB('admins', playerId);
+        // Add new admin
+        set((state) => ({ admins: [...state.admins, adminObj] }));
+        saveItemToDB('admins', adminObj);
+        return true;
+      },
+
+
+      removeAdmin: (adminId) => {
+        const s = get();
+        if (!s.adminName || s.adminName !== OWNER_NAME) return false; // only owner
+        set((state) => ({ admins: state.admins.filter(a => a.id !== adminId) }));
+        deleteItemFromDB('admins', adminId);
+        return true;
+      },
+
       importData: (importedState) => {
         set({
           funds: importedState.funds || [],
           balls: importedState.balls || [],
           players: importedState.players || initialPlayers
         });
+      },
+
+      // Rules CRUD
+      addRule: (rule) => {
+        const newRule = { ...rule, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+        set((state) => ({ rules: [newRule, ...state.rules] }));
+        saveItemToDB('rules', newRule);
+      },
+
+      updateRule: (id, updatedData) => {
+        set((state) => ({ rules: state.rules.map(r => r.id === id ? { ...r, ...updatedData } : r) }));
+        const updated = get().rules.find(r => r.id === id);
+        if (updated) saveItemToDB('rules', updated);
+      },
+
+      removeRule: (id) => {
+        set((state) => ({ rules: state.rules.filter(r => r.id !== id) }));
+        deleteItemFromDB('rules', id);
       },
 
       // Match Actions
@@ -190,6 +291,8 @@ export const useStore = create(
         matches: state.matches,
         theme: state.theme,
         isAdmin: state.isAdmin,
+        adminName: state.adminName,
+        adminId: state.adminId,
       }),
     }
   )

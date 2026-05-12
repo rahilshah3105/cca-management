@@ -6,6 +6,7 @@ import { Lock, Eye, EyeOff } from 'lucide-react';
 const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const { login } = useStore();
   const navigate = useNavigate();
@@ -14,13 +15,13 @@ const Login = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const success = login(password);
+    const success = await login(name.trim(), password);
     if (success) {
       navigate('/');
     } else {
-      setError('Invalid admin password');
+      setError('Invalid admin name or password');
       setPassword('');
     }
   };
@@ -41,6 +42,9 @@ const Login = () => {
 
         <form onSubmit={handleLogin}>
           <div className="form-group" style={{ textAlign: 'left' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Name</label>
+            <input type="text" className="form-control" placeholder="Admin name" value={name} onChange={(e) => { setName(e.target.value); setError(''); }} required />
+            <div style={{ height: '0.5rem' }} />
             <div className="password-input">
               <input
                 type={showPassword ? 'text' : 'password'}
