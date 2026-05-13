@@ -4,13 +4,14 @@ import { Search, ArrowUpDown, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import DatePicker from '../components/DatePicker';
 import CustomSelect from '../components/CustomSelect';
-import Modal from '../components/Modal';
+import { parseImportedFile, validateImportedRecords } from '../utils/importRecords';
 
 const BatsContribution = () => {
   const { funds, players, addFund, isAdmin, addPlayer } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'total', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
   const [showForm, setShowForm] = useState(false);
+  const [importStatus, setImportStatus] = useState('');
   const [formData, setFormData] = useState({ amount: '', type: 'INCOME', playerId: '', description: '', date: '' });
 
   const handleAddNewPlayer = async (name) => {
@@ -20,6 +21,71 @@ const BatsContribution = () => {
       const newId = addPlayer({ name: playerName.trim() });
       setFormData({ ...formData, playerId: newId });
     }
+  };
+
+  const handleImportRecords = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedExtensions = ['.json', '.txt', '.xlsx', '.xls', '.docx'];
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+      setImportStatus('Only .json, .txt, .xlsx, .xls, and .docx files are allowed');
+      setTimeout(() => setImportStatus(''), 3000);
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.docx')) {
+        setImportStatus('Error: Excel and Word files require conversion. Please export as CSV or JSON first.');
+        setTimeout(() => setImportStatus(''), 3000);
+        e.target.value = '';
+        return;
+      }
+
+      const records = await parseImportedFile(file);
+      const validation = validateImportedRecords(records);
+
+      if (!validation.valid) {
+        setImportStatus(validation.message);
+        setTimeout(() => setImportStatus(''), 3000);
+        e.target.value = '';
+        return;
+      }
+
+      let importedCount = 0;
+      for (const record of validation.records) {
+        const playerName = record.player;
+        const amount = record.amount;
+        const date = record.date;
+        const description = record.description || '';
+
+        let playerId = players.find(p => p.name.toLowerCase() === playerName.toLowerCase())?.id;
+        if (!playerId) {
+          playerId = addPlayer({ name: playerName });
+        }
+
+        addFund({
+          amount: Number(amount),
+          type: 'INCOME',
+          playerId,
+          category: 'Bat',
+          description,
+          date: new Date(date).toISOString()
+        });
+        importedCount++;
+      }
+
+      setImportStatus(`Successfully imported ${importedCount} record(s)!`);
+      setTimeout(() => setImportStatus(''), 3000);
+    } catch (error) {
+      setImportStatus(`Error importing file: ${error.message}`);
+      setTimeout(() => setImportStatus(''), 3000);
+    }
+    
+    e.target.value = '';
   };
 
   const handleSort = (key) => {
@@ -51,24 +117,44 @@ const BatsContribution = () => {
 
   const playerOptions = players.map(p => ({ label: p.name, value: p.id }));
 
-  const playerContributions = useMemo(() => {
+  // Process data - Show individual entries for Bats category
+  const batsEntries = useMemo(() => {
     const batsData = funds.filter(f => f.category === 'Bat' && f.type === 'INCOME');
-    const byPlayer = {};
-    batsData.forEach(fund => {
-      if (!byPlayer[fund.playerId]) byPlayer[fund.playerId] = { playerId: fund.playerId, playerName: players.find(p => p.id === fund.playerId)?.name || 'Unknown', total: 0, count: 0, latestDate: null, entries: [] };
-      byPlayer[fund.playerId].total += Number(fund.amount) || 0;
-      byPlayer[fund.playerId].count += 1;
-      byPlayer[fund.playerId].latestDate = fund.date;
-      byPlayer[fund.playerId].entries.push({ date: fund.date, amount: fund.amount, description: fund.description });
+    
+    let result = batsData.map((fund, index) => ({
+      id: fund.id || index,
+      date: fund.date,
+      playerId: fund.playerId,
+      playerName: players.find(p => p.id === fund.playerId)?.name || 'Unknown',
+      amount: fund.amount
+    }));
+
+    // Search
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      result = result.filter(entry => entry.playerName.toLowerCase().includes(lowerQuery));
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortConfig.key === 'date') {
+        return sortConfig.direction === 'desc'
+          ? new Date(b.date).getTime() - new Date(a.date).getTime()
+          : new Date(a.date).getTime() - new Date(b.date).getTime();
+      }
+      if (sortConfig.key === 'player') {
+        return sortConfig.direction === 'asc'
+          ? a.playerName.localeCompare(b.playerName)
+          : b.playerName.localeCompare(a.playerName);
+      }
+      if (sortConfig.key === 'amount') {
+        return sortConfig.direction === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+      }
+      return 0;
     });
 
-    let result = Object.values(byPlayer);
-    if (searchQuery) result = result.filter(p => p.playerName.toLowerCase().includes(searchQuery.toLowerCase()));
-    result.sort((a, b) => sortConfig.key === 'total' ? (sortConfig.direction === 'desc' ? b.total - a.total : a.total - b.total) : 0);
     return result;
   }, [funds, players, searchQuery, sortConfig]);
-
-  const [viewingPlayer, setViewingPlayer] = useState(null);
 
   return (
     <div className="page-container" style={{ animation: 'fadeIn 0.2s ease' }}>
@@ -76,11 +162,45 @@ const BatsContribution = () => {
         <div>
           <h1>Bats Contributions</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            Total collected: <span style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--success-color)' }}>₹{playerContributions.reduce((s, p) => s + p.total, 0)}</span>
+            Total collected: <span style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--success-color)' }}>₹{batsEntries.reduce((s, entry) => s + Number(entry.amount), 0)}</span>
           </p>
         </div>
-        {isAdmin && <button className="btn btn-primary mb-6" onClick={() => setShowForm(!showForm)}><Plus size={18} /> Add Entry</button>}
+        {isAdmin && (
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary mb-6" onClick={() => setShowForm(!showForm)}><Plus size={18} /> Add Entry</button>
+            <button 
+              className="btn btn-primary mb-6" 
+              onClick={() => document.getElementById('import-file-input-bats')?.click()}
+              style={{ background: 'var(--secondary-color)', border: 'none' }}
+            >
+              📥 Import Records
+            </button>
+            <input 
+              id="import-file-input-bats"
+              type="file" 
+              accept=".json,.txt,.xlsx,.xls,.docx"
+              onChange={handleImportRecords}
+              style={{ display: 'none' }}
+            />
+          </div>
+        )}
       </div>
+
+      {importStatus && (
+        <div style={{
+          padding: '1rem',
+          background: importStatus.includes('Error') ? 'var(--danger-bg)' : 'var(--success-bg)',
+          border: importStatus.includes('Error') ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(16, 185, 129, 0.2)',
+          borderRadius: 'var(--radius-md)',
+          color: importStatus.includes('Error') ? 'var(--danger-color)' : 'var(--success-color)',
+          marginBottom: '1rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>{importStatus}</span>
+        </div>
+      )}
 
       {isAdmin && showForm && (
         <div className="glass-card mb-6" style={{ animation: 'fadeInDown 0.2s ease-out', position: 'relative', zIndex: 10 }}>
@@ -120,23 +240,21 @@ const BatsContribution = () => {
             <thead>
               <tr>
                 <th style={{ width: '80px' }}>ID</th>
-                <th onClick={() => handleSort('name')} style={{ cursor: 'pointer' }}>Player <ArrowUpDown size={14} style={{ marginLeft: '4px', opacity: sortConfig.key === 'name' ? 1 : 0.3 }} /></th>
-                <th>Latest Date</th>
-                <th className="text-right" onClick={() => handleSort('total')} style={{ cursor: 'pointer' }}>Amount (₹) <ArrowUpDown size={14} style={{ marginLeft: '4px', opacity: sortConfig.key === 'total' ? 1 : 0.3 }} /></th>
-                <th className="text-center">Entries</th>
+                <th onClick={() => handleSort('date')} style={{ cursor: 'pointer' }}>Date <ArrowUpDown size={14} style={{ marginLeft: '4px', opacity: sortConfig.key === 'date' ? 1 : 0.3 }} /></th>
+                <th onClick={() => handleSort('player')} style={{ cursor: 'pointer' }}>Player <ArrowUpDown size={14} style={{ marginLeft: '4px', opacity: sortConfig.key === 'player' ? 1 : 0.3 }} /></th>
+                <th className="text-right" onClick={() => handleSort('amount')} style={{ cursor: 'pointer' }}>Amount (₹) <ArrowUpDown size={14} style={{ marginLeft: '4px', opacity: sortConfig.key === 'amount' ? 1 : 0.3 }} /></th>
               </tr>
             </thead>
             <tbody>
-              {playerContributions.length === 0 ? (
-                <tr><td colSpan="5" className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>No contributions found.</td></tr>
+              {batsEntries.length === 0 ? (
+                <tr><td colSpan="4" className="text-center" style={{ padding: '2rem', color: 'var(--text-secondary)' }}>No contributions found.</td></tr>
               ) : (
-                playerContributions.map((player, index) => (
-                  <tr key={player.playerId} style={{ cursor: 'pointer' }} onClick={() => setViewingPlayer(player)}>
+                batsEntries.map((entry, index) => (
+                  <tr key={entry.id}>
                     <td style={{ color: 'var(--text-secondary)' }}>#{index + 1}</td>
-                    <td style={{ fontWeight: 500 }}>{player.playerName}</td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{player.latestDate ? format(new Date(player.latestDate), 'dd MMM yyyy') : '-'}</td>
-                    <td className="text-right" style={{ fontWeight: 600, color: 'var(--success-color)', fontSize: '1.1rem' }}>₹{player.total}</td>
-                    <td className="text-center" style={{ color: 'var(--text-secondary)' }}>{player.count}</td>
+                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{format(new Date(entry.date), 'dd MMM yyyy')}</td>
+                    <td style={{ fontWeight: 500 }}>{entry.playerName}</td>
+                    <td className="text-right" style={{ fontWeight: 600, color: 'var(--success-color)', fontSize: '1.1rem' }}>₹{entry.amount}</td>
                   </tr>
                 ))
               )}
@@ -144,40 +262,9 @@ const BatsContribution = () => {
           </table>
         </div>
       </div>
-
-      <Modal isOpen={!!viewingPlayer} onClose={() => setViewingPlayer(null)} title={viewingPlayer?.playerName}>
-        {viewingPlayer && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Player</p>
-                <p style={{ fontWeight: 600 }}>{viewingPlayer.playerName}</p>
-              </div>
-              <div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Total</p>
-                <p style={{ fontWeight: 700, color: 'var(--success-color)' }}>₹{viewingPlayer.total}</p>
-              </div>
-            </div>
-
-            <div>
-              <h3 style={{ marginBottom: '0.75rem', fontSize: '0.95rem', fontWeight: 600 }}>Entries</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '400px', overflowY: 'auto' }}>
-                {viewingPlayer.entries.sort((a,b) => new Date(b.date) - new Date(a.date)).map((e, i) => (
-                  <div key={i} style={{ background: 'rgba(0,0,0,0.08)', padding: '0.75rem', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{format(new Date(e.date), 'dd MMM yyyy, HH:mm')}</div>
-                      <div style={{ fontWeight: 600 }}>{e.description || '—'}</div>
-                    </div>
-                    <div style={{ fontWeight: 700, color: 'var(--success-color)' }}>₹{e.amount}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };
 
 export default BatsContribution;
+

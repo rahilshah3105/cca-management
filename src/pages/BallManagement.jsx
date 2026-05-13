@@ -17,7 +17,7 @@ const BallManagement = () => {
     quantity: '',
     type: 'LOST',
     playerId: '',
-    reason: 'Lost in bushes',
+    reason: 'Lost on road',
     description: ''
   });
 
@@ -28,10 +28,11 @@ const BallManagement = () => {
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
   const reasons = [
-    { label: 'Lost in bushes', value: 'Lost in bushes' },
-    { label: 'Hit in water', value: 'Hit in water' },
-    { label: 'Torn / Damaged', value: 'Torn / Damaged' },
+    { label: 'Lost on road', value: 'Lost on road' },
+    { label: 'Lost on Metro', value: 'Lost on Metro' },
     { label: 'Taken by someone', value: 'Taken by someone' },
+    { label: 'Torn / Damaged', value: 'Torn / Damaged' },
+    { label: 'Hit in water', value: 'Hit in water' },
     { label: 'Other', value: 'Other' }
   ];
 
@@ -45,7 +46,7 @@ const BallManagement = () => {
       quantity: Number(formData.quantity)
     });
     
-    setFormData({ quantity: '', type: 'LOST', playerId: '', reason: 'Lost in bushes', description: '' });
+    setFormData({ quantity: '', type: 'LOST', playerId: '', reason: 'Lost on road', description: '' });
     setShowAddForm(false);
   };
 
@@ -266,10 +267,10 @@ const BallManagement = () => {
                 <th onClick={() => handleSort('type')} style={{ cursor: 'pointer' }}>
                   Type <ArrowUpDown size={14} style={{ marginLeft: '4px', opacity: sortConfig.key === 'type' ? 1 : 0.3 }} />
                 </th>
+                <th>Player</th>
                 <th onClick={() => handleSort('quantity')} style={{ cursor: 'pointer' }}>
                   Quantity <ArrowUpDown size={14} style={{ marginLeft: '4px', opacity: sortConfig.key === 'quantity' ? 1 : 0.3 }} />
                 </th>
-                <th>Player (If Lost)</th>
                 <th>Reason</th>
                 <th>Description</th>
                 <th className="text-center">Recovery</th>
@@ -295,8 +296,8 @@ const BallManagement = () => {
                           {ball.type}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{ball.quantity}</td>
                       <td>{ball.type === 'LOST' ? (player ? player.name : 'Unknown') : '-'}</td>
+                      <td style={{ fontWeight: 600 }}>{ball.quantity}</td>
                       <td>{ball.type === 'LOST' ? ball.reason : '-'}</td>
                       <td style={{ maxWidth: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ball.description || '-'}
