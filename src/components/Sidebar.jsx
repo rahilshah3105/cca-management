@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, IndianRupee, CircleDashed, Users, LogOut, LogIn, Sun, Moon, Trophy, BookOpen, Image } from 'lucide-react';
 import { useStore, showConfirm } from '../store/useStore';
 import ExportData from './ExportData';
@@ -6,6 +6,7 @@ import './Sidebar.css';
 
 const Sidebar = () => {
   const { theme, toggleTheme, isAdmin, logout, adminName } = useStore();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -23,6 +24,12 @@ const Sidebar = () => {
     { path: '/matches', label: 'Matches', icon: <Trophy size={20} /> },
     { path: '/gallery', label: 'Gallery', icon: <Image size={20} /> },
   ];
+
+  const isFundManagementActive =
+    location.pathname === '/funds' ||
+    location.pathname === '/stumps-contribution' ||
+    location.pathname === '/balls-contribution' ||
+    location.pathname === '/bats-contribution';
 
   return (
     <aside className="sidebar">
@@ -43,7 +50,13 @@ const Sidebar = () => {
           <NavLink 
             key={item.path} 
             to={item.path} 
-            className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+            className={({ isActive }) => {
+              if (item.path === '/funds') {
+                return isFundManagementActive ? 'nav-item active' : 'nav-item';
+              }
+
+              return isActive ? 'nav-item active' : 'nav-item';
+            }}
           >
             {item.icon}
             <span>{item.label}</span>
